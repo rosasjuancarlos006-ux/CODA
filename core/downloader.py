@@ -33,19 +33,19 @@ def find_ffmpeg() -> str | None:
     return None
 
 
-def download_audio_from_youtube(query: str, output_dir: Path) -> dict:
+def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str = "mp3") -> dict:
     """
-    Descarga el audio de un video o búsqueda de YouTube y lo convierte a MP3 con metadatos.
+    Descarga el audio de un video o búsqueda de YouTube y lo convierte al formato deseado (mp3, m4a, opus) con metadatos.
     'query' puede ser una URL directa o un prefijo como 'ytsearch1:Nombre Cancion'.
     """
-    logger.info(f"Iniciando descarga individual con query: '{query}'")
+    logger.info(f"Iniciando descarga individual con query: '{query}' en formato: '{audio_format}'")
 
     # 1. Validar que FFmpeg exista ANTES de intentar descargar
     ffmpeg_binary = find_ffmpeg()
     if not ffmpeg_binary:
         err_msg = (
             "FFmpeg no fue detectado en la carpeta 'bin/' ni en el PATH del sistema.\n"
-            "      Es indispensable para convertir los streams de YouTube a formato .mp3."
+            "      Es indispensable para convertir los streams de YouTube al formato seleccionado."
         )
         logger.error("FFmpeg no encontrado. Abortando descarga.")
         return {
@@ -63,7 +63,7 @@ def download_audio_from_youtube(query: str, output_dir: Path) -> dict:
         'ffmpeg_location': ffmpeg_binary,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
+            'preferredcodec': audio_format,
             'preferredquality': '192',
         }],
         'quiet': True,
@@ -93,33 +93,34 @@ def download_audio_from_youtube(query: str, output_dir: Path) -> dict:
             uploader = video_info.get('uploader', 'Desconocido')
             thumbnail = video_info.get('thumbnail')
 
-            # Ubicar el archivo .mp3 resultante para incrustar metadatos
-            mp3_path = output_dir / f"{title}.mp3"
+            # Ubicar el archivo de audio resultante para incrustar metadatos
+            audio_path = output_dir / f"{title}.{audio_format}"
 
-            # Si el nombre exacto no concuerda, buscar el archivo .mp3 modificado más reciente
-            if not mp3_path.exists():
-                candidates = list(output_dir.glob("*.mp3"))
+            # Si el nombre exacto no concuerda, buscar el archivo del formato modificado más reciente
+            if not audio_path.exists():
+                candidates = list(output_dir.glob(f"*.{audio_format}"))
                 if candidates:
-                    mp3_path = max(candidates, key=lambda f: f.stat().st_mtime)
+                    audio_path = max(candidates, key=lambda f: f.stat().st_mtime)
 
             metadata_applied = False
-            if mp3_path.exists():
+            if audio_path.exists():
                 meta_payload = {
                     "title": title,
                     "uploader": uploader,
                     "thumbnail": thumbnail
                 }
-                metadata_applied = write_id3_metadata(mp3_path, meta_payload)
+                metadata_applied = write_id3_metadata(audio_path, meta_payload)
             else:
-                logger.warning(f"No se encontró el archivo MP3 resultante en {output_dir}")
+                logger.warning(f"No se encontró el archivo {audio_format.upper()} resultante en {output_dir}")
 
-            logger.info(f"Descarga exitosa: '{title}' por '{uploader}' -> {mp3_path.name}")
+            logger.info(f"Descarga exitosa: '{title}' por '{uploader}' -> {audio_path.name}")
             return {
                 "success": True,
                 "title": title,
                 "duration": duration,
                 "uploader": uploader,
-                "mp3_path": str(mp3_path),
+                "mp3_path": str(audio_path),
+                "audio_format": audio_format,
                 "metadata_applied": metadata_applied
             }
     except yt_dlp.utils.DownloadError as e:
@@ -142,12 +143,13 @@ def download_playlist(
     playlist_url: str,
     output_dir: Path,
     limit: int = 0,
-    on_progress: Optional[Callable[[int, int, str, str], None]] = None
+    on_progress: Optional[Callable[[int, int, str, str], None]] = None,
+    audio_format: str = "mp3"
 ) -> dict:
     """
-    Descarga todos los videos de una playlist de YouTube como MP3 con metadatos.
+    Descarga todos los videos de una playlist de YouTube como audio con metadatos en el formato especificado.
     """
-    logger.info(f"Iniciando descarga de playlist: '{playlist_url}' con límite: {limit}")
+    logger.info(f"Iniciando descarga de playlist: '{playlist_url}' en formato '{audio_format}' con límite: {limit}")
     ffmpeg_binary = find_ffmpeg()
     if not ffmpeg_binary:
         logger.error("FFmpeg no encontrado para descarga de playlist.")
@@ -228,7 +230,7 @@ def download_playlist(
         if on_progress:
             on_progress(i, total_to_download, video_title, "downloading")
 
-        result = download_audio_from_youtube(video_url, output_dir)
+        result = download_audio_from_youtube(video_url, output_dir, audio_format=audio_format)
 
         if result.get("success"):
             successful.append({

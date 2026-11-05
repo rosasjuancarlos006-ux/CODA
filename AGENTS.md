@@ -1,6 +1,6 @@
 # AGENTS.md — Coda (YouTube Music Downloader)
 
-Coda es una herramienta de terminal en Python para buscar y descargar música o playlists completas desde YouTube en formato MP3 (192 kbps) con carátula y metadatos ID3 automáticos, contando con una interfaz de usuario profesional basada en Rich.
+Coda es una herramienta de terminal en Python para buscar y descargar música o playlists completas desde YouTube en formato MP3, M4A u OPUS con carátula y metadatos ID3 automáticos, contando con una interfaz de usuario profesional basada en Rich.
 
 ## Stack y estructura
 
@@ -20,19 +20,21 @@ Coda es una herramienta de terminal en Python para buscar y descargar música o 
   - `app.log`: Archivo de bitácora generado en ejecución (ignorado en git).
   - `ui/`:
     - `cli.py`: Definición y parseo de argumentos por terminal (`argparse`).
-    - `display.py`: Componentes visuales con Rich (banner ASCII, paneles, tablas de biblioteca y resumen).
+    - `display.py`: Componentes visuales con Rich (banner ASCII, prompt de formato con reintentos, tablas y resumen).
   - `core/`:
-    - `downloader.py`: Orquestación con `yt-dlp`, gestión de excepciones y logging de descargas.
+    - `downloader.py`: Orquestación con `yt-dlp` (formato dinámico mp3/m4a/opus), gestión de excepciones y logging.
     - `resolver.py`: Transforma la entrada en query/parámetros para `yt-dlp`.
   - `metadata/`:
-    - `writer.py`: Limpieza de artista/título (`clean_metadata_fields`) e incrustación de ID3 (`write_id3_metadata`).
+    - `writer.py`: Limpieza de artista/título e incrustación de ID3 con degradación elegante.
   - `utils/`:
     - `validator.py`: Expresiones regulares y clasificación del input (`video`, `playlist`, `search`).
+    - `format_validator.py`: Normalización y validación pura de formatos de audio (`mp3`, `m4a`, `opus`).
     - `file_manager.py`: Sanitización de caracteres prohibidos en nombres de archivo para Windows.
   - `tests/`:
     - `test_validator.py`: Pruebas unitarias para clasificación y regex de URLs.
     - `test_file_manager.py`: Pruebas de sanitización de caracteres no válidos.
-  - `downloads/`: Directorio local donde se guardan los archivos `.mp3` (ignorado en git).
+    - `test_format_validator.py`: Pruebas unitarias para validación y normalización de formatos.
+  - `downloads/`: Directorio local donde se guardan los archivos de audio (ignorado en git).
 
 ## Comandos
 
@@ -55,25 +57,28 @@ Coda es una herramienta de terminal en Python para buscar y descargar música o 
   ```
 - **Verificación sintáctica y de módulos:**
   ```powershell
-  python -c "import config, core.downloader, core.resolver, metadata.writer, utils.validator, ui.cli, ui.display, main; print('Módulos cargados exitosamente')"
+  python -c "import config, core.downloader, core.resolver, metadata.writer, utils.validator, utils.format_validator, ui.cli, ui.display, main; print('Módulos cargados exitosamente')"
   ```
 
 ## Convenciones
 
 - **Estilo de código:** PEP 8, nombres de funciones en `snake_case`, constantes en `UPPER_SNAKE_CASE` en `config.py`.
-- **Tipado estricto:** Uso de type hints de Python (`pathlib.Path`, `Optional`, `Callable`, `Literal`).
-- **Logging:** Usar `logger = logging.getLogger(__name__)` por módulo, registrando advertencias y fallos con niveles apropiados (`debug`, `info`, `warning`, `error`, `exception`).
+- **Tipado estricto:** Uso de type hints de Python (`pathlib.Path`, `Optional`, `Callable`, `Literal`, `Tuple`).
+- **Logging:** Usar `logger = logging.getLogger(__name__)` por módulo, registrando en inglés advertencias y fallos (`debug`, `info`, `warning`, `error`, `exception`).
 - **Codificación en Windows:** Mantener `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` para evitar problemas de codificación cp1252.
 - **Idioma:**
   - Interfaz de usuario y mensajes: Español.
-  - Documentación del código y logs: Español/inglés contextual limpio.
+  - Documentación del código y logs: Inglés.
 - **Manejo de rutas:** Utilizar siempre `pathlib.Path`.
 
 ## Reglas de dominio / trampas conocidas
 
-- **FFmpeg indispensable:** Sin FFmpeg no es posible extraer ni codificar streams a `.mp3`.
-- **Control de excepciones:** Cada módulo debe capturar errores de red, permisos de archivo o argumentos inválidos sin crashear silenciosamente ni abortar el hilo principal.
+- **FFmpeg indispensable:** Sin FFmpeg no es posible extraer ni codificar streams a `.mp3`, `.m4a` u `.opus`.
+- **Control de excepciones y degradación:** La inyección de metadatos o carátula no soportada en formatos no MP3 no debe abortar la descarga; el audio se conserva intacto.
 - **Binarios y descargas en Git:** Nunca incluir `bin/`, `downloads/` ni `app.log` en el control de versiones de Git.
+
+## Reglas
+- Lee `docs/constitution.md` y la spec activa (`specs/NNN-*/`) antes de tocar código.
 
 ## Límites
 
@@ -84,9 +89,9 @@ Coda es una herramienta de terminal en Python para buscar y descargar música o 
   - Actualizar `MEMORY.md` al terminar cada tarea.
 - ⚠️ **Pregunta antes:**
   - Añadir dependencias obligatorias a `requirements.txt`.
-  - Cambiar el formato o tasa de bits predeterminada de salida.
+  - Modificar formatos permitidos o tasa de bits por defecto.
 - 🚫 **Nunca:**
-  - Incluir ejecutables de `bin/` o archivos `.mp3` en commits de Git.
+  - Incluir ejecutables de `bin/` o archivos de audio en commits de Git.
   - Hardcodear rutas absolutas locales (`C:\Users\...`).
 
 ## Verificación

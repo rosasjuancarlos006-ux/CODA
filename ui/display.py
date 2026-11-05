@@ -1,4 +1,5 @@
 import sys
+import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from rich.console import Console
@@ -6,6 +7,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn, MofNCompleteColumn
+
+from utils.format_validator import resolve_audio_format
+
+logger = logging.getLogger(__name__)
 
 # En Windows aseguramos que stdout maneje caracteres Unicode / utf-8 sin crashear en cp1252
 if hasattr(sys.stdout, "reconfigure"):
@@ -28,7 +33,7 @@ BANNER_ASCII = r"""
 def show_banner():
     """Muestra el banner ASCII de bienvenida con estilo moderno y degradado sutil."""
     banner_text = Text(BANNER_ASCII, style="bold cyan")
-    tagline = Text("YouTube Music Downloader • High Quality MP3 & ID3 Tags\n", style="dim white")
+    tagline = Text("YouTube Music Downloader • High Quality Audio & ID3 Tags\n", style="dim white")
     console.print(banner_text)
     console.print(tagline)
 
@@ -64,6 +69,41 @@ def show_warning(msg: str):
     console.print(f"[bold yellow]⚠[/bold yellow] [yellow]{msg}[/yellow]")
 
 
+def prompt_audio_format(is_playlist: bool = False) -> str:
+    """
+    Solicita interactivamente el formato de audio al usuario con hasta 3 reintentos.
+    Retorna 'mp3', 'm4a' u 'opus'. Si se supera el límite de intentos, selecciona 'mp3'.
+    """
+    if is_playlist:
+        show_warning("El formato seleccionado aplicará a todas las canciones de la playlist.")
+
+    retries = 0
+    max_retries = 3
+
+    while retries < max_retries:
+        try:
+            raw_input = console.input("[cyan]Formato de audio [mp3/m4a/opus] (Enter = mp3): [/cyan]")
+        except KeyboardInterrupt:
+            logger.info("Format selection interrupted by user.")
+            raise
+
+        is_valid, chosen_format = resolve_audio_format(raw_input)
+
+        if is_valid:
+            logger.info(f"Selected audio format: {chosen_format}")
+            return chosen_format
+
+        retries += 1
+        logger.debug(f"Invalid format option entered: '{raw_input}'")
+
+        if retries < max_retries:
+            show_warning("Opción no válida. Los formatos disponibles son: mp3, m4a, opus.")
+
+    show_warning("Se superó el límite de reintentos. Se aplicará el formato por defecto: mp3.")
+    logger.info("Max retries exceeded. Falling back to default format: mp3")
+    return "mp3"
+
+
 def show_success_single(song_data: Dict[str, Any]):
     """Muestra un panel detallado y limpio con la información del track descargado."""
     title = song_data.get("title", "Desconocido")
@@ -72,7 +112,15 @@ def show_success_single(song_data: Dict[str, Any]):
     mins, secs = divmod(duration, 60)
     time_str = f"{mins}:{secs:02d} min" if duration else "N/A"
     path = song_data.get("mp3_path", "N/A")
-    meta_status = "✓ Incrustados (ID3v2 + Cover)" if song_data.get("metadata_applied") else "⚠ Pendiente"
+    fmt = song_data.get("audio_format", "mp3").upper()
+
+    if song_data.get("metadata_applied"):
+        meta_status = "✓ Incrustados (ID3v2 + Cover)"
+    else:
+        if fmt != "MP3":
+            meta_status = f"⚠ No soportado para {fmt} (Audio intacto)"
+        else:
+            meta_status = "⚠ Pendiente / Error al incrustar"
 
     grid = Table.grid(padding=(0, 2))
     grid.add_column(style="bold cyan", justify="right")
@@ -80,6 +128,7 @@ def show_success_single(song_data: Dict[str, Any]):
 
     grid.add_row("Título:", title)
     grid.add_row("Artista/Canal:", uploader)
+    grid.add_row("Formato:", fmt)
     grid.add_row("Duración:", time_str)
     grid.add_row("Metadatos:", meta_status)
     grid.add_row("Guardado en:", str(path))
@@ -147,7 +196,7 @@ def show_error(message: str, error_type: Optional[str] = None):
         friendly_title = "Dependencia Faltante: FFmpeg"
         friendly_desc = (
             "No se encontró FFmpeg en el sistema ni en la carpeta 'bin/'.\n"
-            "FFmpeg es indispensable para extraer y convertir el audio a formato MP3.\n"
+            "FFmpeg es indispensable para extraer y convertir el audio al formato deseado.\n"
             "Verifica que los archivos 'ffmpeg.exe' y 'ffprobe.exe' estén presentes en 'bin/'."
         )
     elif "private video" in raw_lower or "este video es privado" in raw_lower:
@@ -184,15 +233,17 @@ def show_error(message: str, error_type: Optional[str] = None):
 
 
 def show_downloads_table(downloads_dir: Path):
-    """Muestra la lista de archivos descargados localmente con tamaño en una tabla estética."""
+    """Muestra la lista de archivos descargados localmente con tamaño y formato en una tabla estética."""
     if not downloads_dir.exists():
         show_warning(f"La carpeta '{downloads_dir}' no existe aún.")
         return
 
-    mp3_files = list(downloads_dir.glob("*.mp3"))
-    other_files = [f for f in downloads_dir.glob("*") if f.suffix != ".mp3" and f.is_file()]
+    # Soportar archivos de audio MP3, M4A, OPUS y otros
+    audio_extensions = {".mp3", ".m4a", ".opus"}
+    audio_files = [f for f in downloads_dir.glob("*") if f.suffix.lower() in audio_extensions and f.is_file()]
+    other_files = [f for f in downloads_dir.glob("*") if f.suffix.lower() not in audio_extensions and f.is_file()]
 
-    if not mp3_files and not other_files:
+    if not audio_files and not other_files:
         console.print(
             Panel(
                 Text("La carpeta de descargas está vacía.", style="dim italic"),
@@ -211,9 +262,10 @@ def show_downloads_table(downloads_dir: Path):
     table.add_column("Formato", justify="center", style="bold green", width=10)
     table.add_column("Tamaño (MB)", justify="right", style="cyan", width=14)
 
-    for f in mp3_files:
+    for f in audio_files:
         size_mb = f.stat().st_size / (1024 * 1024)
-        table.add_row(f.name, "MP3", f"{size_mb:.2f} MB")
+        fmt_label = f.suffix.replace(".", "").upper()
+        table.add_row(f.name, fmt_label, f"{size_mb:.2f} MB")
 
     for f in other_files:
         size_mb = f.stat().st_size / (1024 * 1024)

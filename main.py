@@ -30,6 +30,9 @@ def handle_playlist_download(playlist_url: str, output_dir: Path, requested_limi
             except ValueError:
                 display.show_warning("Valor no numérico. Se descargarán todas por defecto.")
 
+    # Solicitar formato de audio para toda la playlist
+    audio_format = display.prompt_audio_format(is_playlist=True)
+
     try:
         with display.console.status("[bold cyan]Consultando información de la playlist en YouTube...", spinner="dots"):
             progress = display.create_playlist_progress()
@@ -46,7 +49,8 @@ def handle_playlist_download(playlist_url: str, output_dir: Path, requested_limi
                     playlist_url=playlist_url,
                     output_dir=output_dir,
                     limit=limit,
-                    on_progress=progress_callback
+                    on_progress=progress_callback,
+                    audio_format=audio_format
                 )
 
         if not result.get("success"):
@@ -62,11 +66,17 @@ def handle_playlist_download(playlist_url: str, output_dir: Path, requested_limi
         display.show_error(f"Error inesperado al procesar la playlist: {e}")
 
 
-def handle_single_download(query: str, output_dir: Path):
+def handle_single_download(query: str, output_dir: Path, audio_format: str | None = None):
     """Flujo para descargar y mostrar feedback estético de una canción individual."""
+    if audio_format is None:
+        audio_format = display.prompt_audio_format(is_playlist=False)
+
     try:
-        with display.console.status("[bold cyan]Descargando audio, convirtiendo a MP3 e inyectando metadatos...", spinner="dots"):
-            result = download_audio_from_youtube(query, output_dir)
+        with display.console.status(
+            f"[bold cyan]Descargando audio, convirtiendo a {audio_format.upper()} e inyectando metadatos...",
+            spinner="dots"
+        ):
+            result = download_audio_from_youtube(query, output_dir, audio_format=audio_format)
 
         if result.get("success"):
             display.show_success_single(result)

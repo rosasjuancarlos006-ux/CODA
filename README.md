@@ -3,23 +3,24 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
-  <img src="https://img.shields.io/badge/Audio-MP3%20192%20kbps-orange?style=for-the-badge" alt="Audio MP3" />
+  <img src="https://img.shields.io/badge/Formats-MP3%20%7C%20M4A%20%7C%20OPUS-orange?style=for-the-badge" alt="Audio Formats" />
   <img src="https://img.shields.io/badge/Interface-Rich%20CLI-magenta?style=for-the-badge" alt="Rich CLI" />
 </p>
 
-**Coda** es una herramienta de terminal profesional en Python para buscar y descargar música o playlists completas desde YouTube en formato MP3 de alta calidad (192 kbps), incorporando automáticamente carátulas originales y metadatos ID3v2.
+**Coda** es una herramienta de terminal profesional en Python para buscar y descargar música o playlists completas desde YouTube en formato **MP3**, **M4A** u **OPUS**, con selección interactiva por operación, carátulas originales, metadatos ID3 automáticos y una interfaz moderna basada en Rich.
 
 ---
 
 ## ✨ Características
 
+- 🎵 **Soporte multiformato dinámico**: Elige entre `mp3`, `m4a` u `opus` en cada descarga (canciones individuales y playlists) con opción predeterminada rápida (`Enter = mp3`).
+- 🛡️ **Prompt guiado con reintentos**: Validación automática de formato, tolerancia a mayúsculas/espacios y hasta 3 reintentos antes de seleccionar `mp3` por defecto.
 - 🔍 **Búsqueda inteligente**: Descarga canciones ingresando su título sin necesidad de abrir el navegador.
 - 🔗 **Descarga directa**: Soporte para enlaces directos de videos individuales de YouTube.
-- 📑 **Descarga de Playlists completas**: Descarga listas enteras con límite configurable de pistas y barra de progreso.
-- 🏷️ **Metadatos ID3 automáticos**: Inyección de etiquetas ID3v2 (Título, Artista parseado, Álbum).
-- 🖼️ **Carátula frontal integrada (APIC)**: Incrusta la portada en alta resolución directamente en el archivo `.mp3`.
-- 💻 **UX moderna en consola con Rich**: Paneles interactivos, banners ASCII, tablas para la biblioteca local y barras de progreso fluidas.
-- 📝 **Registro y trazabilidad**: Bitácora de operaciones y errores en `app.log`.
+- 📑 **Descarga de Playlists completas**: Descarga listas enteras con formato unificado, límite configurable de pistas y barra de progreso.
+- 🏷️ **Metadatos y carátulas con degradación elegante**: Inyección automática de etiquetas ID3v2 (Título, Artista, Álbum) y carátula frontal APIC para MP3; preserva el archivo de audio intacto ante limitaciones técnicas en otros contenedores.
+- 💻 **UX moderna en consola con Rich**: Paneles interactivos, banners ASCII, tablas detalladas para la biblioteca local y barras de progreso fluidas.
+- 📝 **Registro y trazabilidad**: Bitácora técnica completa de operaciones y errores en `app.log`.
 - 🛡️ **Manejo de excepciones robusto**: Mensajes claros ante fallos comunes (videos privados, sin conexión, restricciones de edad).
 
 ---
@@ -33,7 +34,7 @@
 / /___ / /_/ / /_/ // ___ |
 \____/ \____/_____//_/  |_|
 
-YouTube Music Downloader • High Quality MP3 & ID3 Tags
+YouTube Music Downloader • High Quality Audio & ID3 Tags
 
 ┌───────────────────────────── Panel de Control ──────────────────────────────┐
 │                                                                             │
@@ -44,12 +45,20 @@ YouTube Music Downloader • High Quality MP3 & ID3 Tags
 └───────────────────── Selecciona una opción del 1 al 3 ──────────────────────┘
 ```
 
+### Selección interactiva de formato:
+```text
+Descargar Audio o Playlist
+Ingresa la URL o término de búsqueda: Yesterday The Beatles
+ℹ Búsqueda por texto: 'Yesterday The Beatles'. Buscando el mejor resultado...
+Formato de audio [mp3/m4a/opus] (Enter = mp3): opus
+```
+
 ---
 
 ## ⚙️ Requisitos Previos
 
 1. **Python 3.10 o superior**.
-2. **FFmpeg**: Necesario para la extracción y conversión a MP3.
+2. **FFmpeg**: Necesario para la extracción y conversión a MP3, M4A y OPUS.
 
 ### 📥 Cómo obtener FFmpeg
 
@@ -108,10 +117,10 @@ Inicia la interfaz completa de Coda:
 ```bash
 python main.py
 ```
-Te permitirá navegar por el menú, buscar canciones, ingresar playlists o explorar tu biblioteca de archivos descargados.
+Te permitirá navegar por el menú, buscar canciones, ingresar playlists, elegir el formato de salida deseado (`mp3`, `m4a`, `opus`) o explorar tu biblioteca de descargas local.
 
 ### 2. Modo Directo por Argumentos (CLI)
-Si prefieres descargar directamente desde la terminal:
+Si prefieres pasar la canción o playlist directamente desde la terminal, Coda te solicitará el formato de forma interactiva antes de iniciar la conversión:
 
 - **Por nombre de canción**:
   ```bash
@@ -134,7 +143,7 @@ Si prefieres descargar directamente desde la terminal:
 
 ## 🧪 Pruebas Unitarias
 
-Para ejecutar la suite de pruebas automatizadas con `pytest`:
+Para ejecutar la suite completa de pruebas automatizadas con `pytest`:
 ```bash
 pytest tests/ -v
 ```
@@ -146,24 +155,26 @@ pytest tests/ -v
 ```text
 coda/
 ├── core/
-│   ├── downloader.py    # Orquestación con yt-dlp y conversión de audio
-│   └── resolver.py      # Resolución y clasificación de consultas
+│   ├── downloader.py          # Orquestación con yt-dlp y conversión multiformato
+│   └── resolver.py            # Resolución y clasificación de consultas
 ├── metadata/
-│   └── writer.py        # Tags ID3v2 y extracción de portadas APIC
+│   └── writer.py              # Tags ID3v2, portadas y degradación elegante
 ├── ui/
-│   ├── cli.py           # Parseo de argumentos con argparse
-│   └── display.py       # Renderizado enriquecido en consola con Rich
+│   ├── cli.py                 # Parseo de argumentos con argparse
+│   └── display.py             # Interfaz visual con Rich y prompt de formato
 ├── utils/
-│   ├── file_manager.py  # Sanitización de nombres de archivo
-│   └── validator.py     # Detección y validación de URLs y playlists
+│   ├── file_manager.py        # Sanitización de nombres de archivo
+│   ├── format_validator.py    # Validación y normalización pura de formatos
+│   └── validator.py           # Detección y validación de URLs y playlists
 ├── tests/
 │   ├── test_file_manager.py
+│   ├── test_format_validator.py
 │   └── test_validator.py
-├── downloads/           # Directorio donde se guardan los archivos .mp3
-├── config.py            # Configuraciones globales y logging
-├── main.py              # Punto de entrada de la aplicación
-├── requirements.txt     # Dependencias de producción
-├── LICENSE              # Licencia MIT
+├── downloads/                 # Directorio donde se guardan los archivos de audio
+├── config.py                  # Configuraciones globales y logging
+├── main.py                    # Punto de entrada de la aplicación
+├── requirements.txt           # Dependencias de producción
+├── LICENSE                    # Licencia MIT
 └── README.md
 ```
 
