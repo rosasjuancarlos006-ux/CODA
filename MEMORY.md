@@ -2,24 +2,26 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- **Versión**: Fase 6 (Soporte multiformato dinámico: MP3, M4A, OPUS).
+- **Versión**: Fase 7 (Soporte multiplataforma: YouTube y YouTube Music).
 - **Funcionalidades**:
-  - Selección interactiva de formato (`mp3`, `m4a`, `opus`) por operación con límite de 3 reintentos y fallback a `mp3`.
-  - Configuración unificada para playlists con advertencia visible.
-  - Conversión dinámica mediante postprocesador de `yt-dlp` y extracción de audio vía FFmpeg.
-  - Degradación elegante de metadatos: los formatos sin soporte de tags se conservan intactos sin interrumpir el flujo.
-  - UX en terminal con Rich y tabla de biblioteca de descargas multiformato.
-  - Suite de 18 pruebas unitarias con `pytest` pasando al 100%.
+  - Selector de plataforma interactivo (`[1] YouTube`, `[2] YouTube Music`) con alias y reintentos.
+  - Inferencia automática de plataforma por dominio en ejecuciones CLI directas sin fricción.
+  - Búsqueda contextual orientada para YouTube Music (`ytsearch1:{query} Audio Oficial`).
+  - Saneamiento automático de enlaces de video con radio/mix (`&list=RD...`) vía `clean_video_url`.
+  - Auto-adaptación pedagógica con advertencia visual ante discrepancias entre la plataforma y el enlace.
+  - Selección interactiva de formato de audio (`mp3`, `m4a`, `opus`) con degradación elegante.
+  - Suite de 43 pruebas unitarias automatizadas con `pytest` pasando al 100%.
 
 ## Decisiones (y por qué)
-- **Función pura en `utils/format_validator.py`**: Separación de lógica e interfaz (Principio 3) permitiendo testeo unitario exhaustivo sin mocks de consola (Principio 4).
-- **Degradación elegante en metadatos**: Formatos distintos de MP3 omiten la inyección de tags emitiendo un warning sin crashear ni alterar el archivo de audio.
-- **Solicitud interactiva en CLI directo**: Cuando se pasa argumento por CLI, se despliega el prompt de formato antes de procesar para garantizar control de usuario uniforme.
+- **Módulo puro `utils/platform_validator.py`**: Aislamiento de reglas de plataforma y discrepancia (Principio 3), testeable sin I/O (Principio 4).
+- **Poda de mixes en tracks individuales**: Previene que `yt-dlp` procese playlists infinitas accidentales ante URLs `watch?v=...&list=RD...`.
+- **Enriquecimiento contextual en búsquedas**: Prioriza versiones oficiales de estudio en YouTube Music sin agregar dependencias externas (Principio 1).
+- **Auto-adaptación con feedback**: No bloquea al usuario si pega un enlace cruzado; ajusta la plataforma y emite advertencia pedagógica.
 
 ## Aprendizajes y errores a evitar
-- **Normalización de formatos**: Convertir siempre a minúsculas y limpiar espacios laterales antes de verificar membresía (`.strip().lower()`).
-- **Resiliencia ante entradas inválidas**: Limitar a 3 reintentos para evitar atrapar al usuario en bucles infinitos ante errores tipográficos reiterados.
+- **Colapso de espacios en alias**: Normalizar espacios intermedios múltiples (`"youtube   music"` -> `"youtube music"`) para robustez de entrada.
+- **Prioridad de tracks sobre mixes**: Clasificar siempre URLs con `/watch?v=` como `video` incluso si contienen parámetro `&list=`.
 
 ## Próximos pasos
 - Selector interactivo de calidad/bitrate (128, 192, 256, 320 kbps).
-- Posible soporte nativo de metadatos para MP4/M4A usando herramientas del stack.
+- Posible soporte nativo de metadatos para contenedores MP4/M4A.

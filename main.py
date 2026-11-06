@@ -7,6 +7,11 @@ from core.resolver import resolve_query
 from core.downloader import download_audio_from_youtube, download_playlist
 from ui.cli import parse_arguments
 from ui import display
+from utils.platform_validator import (
+    detect_url_platform,
+    check_platform_mismatch,
+    DEFAULT_PLATFORM
+)
 
 logger = logging.getLogger("coda.main")
 
@@ -34,7 +39,7 @@ def handle_playlist_download(playlist_url: str, output_dir: Path, requested_limi
     audio_format = display.prompt_audio_format(is_playlist=True)
 
     try:
-        with display.console.status("[bold cyan]Consultando información de la playlist en YouTube...", spinner="dots"):
+        with display.console.status("[bold cyan]Consultando información de la playlist...", spinner="dots"):
             progress = display.create_playlist_progress()
             task_id = None
 
@@ -91,15 +96,37 @@ def handle_single_download(query: str, output_dir: Path, audio_format: str | Non
 
 
 def handle_download_prompt(output_dir: Path):
-    """Solicita la entrada al usuario en el modo interactivo."""
-    display.console.print("\n[bold cyan]Descargar Audio o Playlist[/bold cyan]")
+    """
+    Solicita la entrada al usuario en el modo interactivo siguiendo la secuencia:
+    1. Selección de plataforma (YouTube o YouTube Music)
+    2. Entrada de URL o término de búsqueda (con auto-adaptación y advertencia si aplica)
+    3. Descarga (playlist o individual)
+    """
+    try:
+        platform = display.prompt_platform()
+    except KeyboardInterrupt:
+        logger.info("Platform selection cancelled by user.")
+        display.show_warning("Operación cancelada por el usuario.")
+        return
+
+    logger.info(f"Selected platform: {platform}")
+    platform_name = display.get_platform_display_name(platform)
+
+    display.console.print(f"\n[bold cyan]Descargar desde {platform_name}[/bold cyan]")
     user_input = display.console.input("[white]Ingresa la URL (video/playlist) o término de búsqueda: [/white]").strip()
 
     if not user_input:
         display.show_warning("No ingresaste ningún texto o enlace.")
         return
 
-    resolved = resolve_query(user_input)
+    # Chequeo de discrepancia y auto-adaptación pedagógica
+    mismatch, adapted_platform = check_platform_mismatch(platform, user_input)
+    if mismatch:
+        display.show_platform_mismatch_warning(platform, adapted_platform)
+        logger.warning(f"Platform mismatch detected: URL belongs to {adapted_platform}. Auto-adapting.")
+        platform = adapted_platform
+
+    resolved = resolve_query(user_input, platform=platform)
     mode = resolved["mode"]
     query = resolved["query"]
 
@@ -107,7 +134,8 @@ def handle_download_prompt(output_dir: Path):
         display.show_info("Enlace de Playlist detectado.")
         handle_playlist_download(query, output_dir)
     elif mode == "search":
-        display.show_info(f"Búsqueda por texto: '{user_input}'. Buscando el mejor resultado...")
+        disp_name = display.get_platform_display_name(platform)
+        display.show_info(f"Búsqueda en {disp_name}: '{user_input}'. Buscando el mejor resultado...")
         handle_single_download(query, output_dir)
     else:
         display.show_info("Enlace directo de video detectado.")
@@ -149,7 +177,12 @@ def main():
 
         if args.query:
             display.show_banner()
-            resolved = resolve_query(args.query)
+            # Inferencia automática de plataforma por CLI
+            detected_platform = detect_url_platform(args.query)
+            platform = detected_platform if detected_platform is not None else DEFAULT_PLATFORM
+            logger.info(f"CLI direct execution inferred platform: {platform}")
+
+            resolved = resolve_query(args.query, platform=platform)
             mode = resolved["mode"]
             query = resolved["query"]
 

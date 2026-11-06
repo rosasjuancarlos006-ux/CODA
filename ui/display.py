@@ -9,6 +9,12 @@ from rich.text import Text
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn, MofNCompleteColumn
 
 from utils.format_validator import resolve_audio_format
+from utils.platform_validator import (
+    PlatformType,
+    PLATFORM_DISPLAY_NAMES,
+    DEFAULT_PLATFORM,
+    normalize_platform_input
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +73,56 @@ def show_info(msg: str):
 def show_warning(msg: str):
     """Muestra una advertencia."""
     console.print(f"[bold yellow]⚠[/bold yellow] [yellow]{msg}[/yellow]")
+
+
+def get_platform_display_name(platform: str) -> str:
+    """Retorna el nombre para mostrar de una plataforma o la cadena original."""
+    return PLATFORM_DISPLAY_NAMES.get(platform, platform)
+
+
+def show_platform_mismatch_warning(selected: str, detected: str):
+    """Muestra una advertencia y mensaje pedagógico ante discrepancia de plataforma."""
+    sel_name = get_platform_display_name(selected)
+    det_name = get_platform_display_name(detected)
+    show_warning(f"Aviso: Habías seleccionado {sel_name}, pero el enlace pertenece a {det_name}.")
+    show_info(f"Se adaptará automáticamente la descarga para procesar el contenido de {det_name}.")
+
+
+def prompt_platform() -> PlatformType:
+    """
+    Solicita interactivamente la plataforma al usuario (YouTube o YouTube Music)
+    con hasta 3 reintentos. Retorna 'youtube' o 'youtube_music'.
+    Si se agotan los reintentos, selecciona 'youtube' por defecto.
+    """
+    console.print("[bold cyan]Plataforma de Descarga[/bold cyan]")
+    console.print("  [1] [white]YouTube (Catálogo general, videos, directos)[/white]")
+    console.print("  [2] [white]YouTube Music (Pistas oficiales, álbumes, música de estudio)[/white]\n")
+
+    retries = 0
+    max_retries = 3
+
+    while retries < max_retries:
+        try:
+            raw_input = console.input("[cyan]Selecciona una plataforma [1/2] (Enter = YouTube): [/cyan]")
+        except KeyboardInterrupt:
+            logger.info("Platform selection interrupted by user.")
+            raise
+
+        is_valid, chosen_platform = normalize_platform_input(raw_input)
+
+        if is_valid and chosen_platform is not None:
+            logger.info(f"Selected platform: {chosen_platform}")
+            return chosen_platform
+
+        retries += 1
+        logger.debug(f"Invalid platform option entered: '{raw_input}'")
+
+        if retries < max_retries:
+            show_warning("Opción no válida. Ingresa 1 (YouTube) o 2 (YouTube Music).")
+
+    show_warning("Se superó el límite de reintentos. Se seleccionará YouTube por defecto.")
+    logger.info("Max retries exceeded. Falling back to default platform: youtube")
+    return DEFAULT_PLATFORM
 
 
 def prompt_audio_format(is_playlist: bool = False) -> str:
