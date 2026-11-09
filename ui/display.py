@@ -170,13 +170,16 @@ def show_success_single(song_data: Dict[str, Any]):
     path = song_data.get("mp3_path", "N/A")
     fmt = song_data.get("audio_format", "mp3").upper()
 
-    if song_data.get("metadata_applied"):
+    meta_flag = song_data.get("metadata_applied")
+    if meta_flag is True:
         meta_status = "✓ Incrustados (ID3v2 + Cover)"
+    elif meta_flag == "partial":
+        meta_status = "⚠ Parcial (Solo texto / Sin portada)"
     else:
         if fmt != "MP3":
             meta_status = f"⚠ No soportado para {fmt} (Audio intacto)"
         else:
-            meta_status = "⚠ Pendiente / Error al incrustar"
+            meta_status = "⚠ Falló al incrustar"
 
     grid = Table.grid(padding=(0, 2))
     grid.add_column(style="bold cyan", justify="right")

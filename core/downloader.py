@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import shutil
+import time
 from typing import Callable, Optional
 import yt_dlp
 
@@ -55,12 +56,16 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
         }
 
     outtmpl = str(output_dir / "%(title)s.%(ext)s")
+    download_start_time = time.time()
 
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': outtmpl,
         'noplaylist': True,  # Forzar descarga individual en esta función
         'ffmpeg_location': ffmpeg_binary,
+        'socket_timeout': 15,
+        'retries': 3,
+        'fragment_retries': 3,
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': audio_format,
@@ -96,9 +101,12 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
             # Ubicar el archivo de audio resultante para incrustar metadatos
             audio_path = output_dir / f"{title}.{audio_format}"
 
-            # Si el nombre exacto no concuerda, buscar el archivo del formato modificado más reciente
+            # Si el nombre exacto no concuerda, buscar únicamente archivos generados durante esta descarga
             if not audio_path.exists():
-                candidates = list(output_dir.glob(f"*.{audio_format}"))
+                candidates = [
+                    f for f in output_dir.glob(f"*.{audio_format}")
+                    if f.stat().st_mtime >= (download_start_time - 1.0)
+                ]
                 if candidates:
                     audio_path = max(candidates, key=lambda f: f.stat().st_mtime)
 
@@ -164,6 +172,9 @@ def download_playlist(
         'no_warnings': True,
         'extract_flat': 'in_playlist',
         'ffmpeg_location': ffmpeg_binary,
+        'socket_timeout': 15,
+        'retries': 3,
+        'fragment_retries': 3,
     }
 
     try:

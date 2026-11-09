@@ -2,26 +2,29 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- **Versión**: Fase 7 (Soporte multiplataforma: YouTube y YouTube Music).
+- **Versión**: Fase 7.1 (Resiliencia de red, timeouts en yt-dlp e integridad ID3/carátulas).
 - **Funcionalidades**:
   - Selector de plataforma interactivo (`[1] YouTube`, `[2] YouTube Music`) con alias y reintentos.
   - Inferencia automática de plataforma por dominio en ejecuciones CLI directas sin fricción.
   - Búsqueda contextual orientada para YouTube Music (`ytsearch1:{query} Audio Oficial`).
   - Saneamiento automático de enlaces de video con radio/mix (`&list=RD...`) vía `clean_video_url`.
-  - Auto-adaptación pedagógica con advertencia visual ante discrepancias entre la plataforma y el enlace.
-  - Selección interactiva de formato de audio (`mp3`, `m4a`, `opus`) con degradación elegante.
-  - Suite de 43 pruebas unitarias automatizadas con `pytest` pasando al 100%.
+  - Auto-adaptación pedagógica con advertencia visual ante discrepancias entre plataforma y enlace.
+  - Timeouts de red (`socket_timeout: 15`, `retries: 3`, `fragment_retries: 3`) en `yt-dlp` para evitar cuelgues indefinidos.
+  - Integridad en escritura de tags EasyID3 (retorna `False` ante fallos sin reportar falsos positivos).
+  - Transcodificación automática de carátulas WebP a JPEG vía Pillow/FFmpeg con fallback sin corromper tags APIC.
+  - Protección de timestamps en fallback de archivos evitando inyectar metadatos en canciones antiguas.
+  - Suite de 48 pruebas unitarias automatizadas con `pytest` pasando al 100%.
 
 ## Decisiones (y por qué)
-- **Módulo puro `utils/platform_validator.py`**: Aislamiento de reglas de plataforma y discrepancia (Principio 3), testeable sin I/O (Principio 4).
-- **Poda de mixes en tracks individuales**: Previene que `yt-dlp` procese playlists infinitas accidentales ante URLs `watch?v=...&list=RD...`.
-- **Enriquecimiento contextual en búsquedas**: Prioriza versiones oficiales de estudio en YouTube Music sin agregar dependencias externas (Principio 1).
-- **Auto-adaptación con feedback**: No bloquea al usuario si pega un enlace cruzado; ajusta la plataforma y emite advertencia pedagógica.
+- **Timeouts defensivos en yt-dlp**: Resuelve bloqueos silenciosos en streams lentos o corte de sockets.
+- **Validación estricta de tags ID3**: Si fallan los campos de texto esenciales, se informa error para evitar falsos éxitos en UI.
+- **Transcodificación a JPEG vía FFmpeg local**: Resuelve carátulas WebP de YouTube Music sin requerir obligatoriamente Pillow en requirements.
+- **Aislamiento de timestamps en downloads**: `st_mtime >= download_start_time` evita contaminar pistas previas si la descarga actual no escribe archivo.
 
 ## Aprendizajes y errores a evitar
-- **Colapso de espacios en alias**: Normalizar espacios intermedios múltiples (`"youtube   music"` -> `"youtube music"`) para robustez de entrada.
-- **Prioridad de tracks sobre mixes**: Clasificar siempre URLs con `/watch?v=` como `video` incluso si contienen parámetro `&list=`.
+- **Evitar circular imports**: `metadata.writer` y `core.downloader` deben desacoplar utilidades binarias como `find_ffmpeg`.
+- **EasyID3 try/except**: Nunca silenciar errores en tags de texto devolviendo `True` al final de la función.
 
 ## Próximos pasos
 - Selector interactivo de calidad/bitrate (128, 192, 256, 320 kbps).
-- Posible soporte nativo de metadatos para contenedores MP4/M4A.
+- Soporte nativo de metadatos en contenedores MP4/M4A.

@@ -39,6 +39,7 @@ Coda es una herramienta de terminal en Python para buscar y descargar música o 
     - `test_main_orchestration.py`: Pruebas unitarias del flujo de orquestación (interactivo y CLI).
     - `test_format_validator.py`: Pruebas unitarias para validación y normalización de formatos.
     - `test_file_manager.py`: Pruebas de sanitización de caracteres no válidos.
+    - `test_qa_edge_cases.py`: Pruebas de timeouts de red en yt-dlp, integridad de ID3 y carátulas WebP.
   - `downloads/`: Directorio local donde se guardan los archivos de audio (ignorado en git).
 
 ## Comandos
