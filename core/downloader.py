@@ -2,9 +2,10 @@ import logging
 from pathlib import Path
 import shutil
 import time
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 import yt_dlp
 
+from core.events import DownloadPhase, ProgressEvent
 from metadata.writer import write_id3_metadata
 
 logger = logging.getLogger(__name__)
@@ -34,12 +35,25 @@ def find_ffmpeg() -> str | None:
     return None
 
 
-def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str = "mp3") -> dict:
+def download_audio_from_youtube(
+    query: str,
+    output_dir: Path,
+    audio_format: str = "mp3",
+    on_progress: Optional[Callable[[ProgressEvent], None]] = None
+) -> dict:
     """
     Descarga el audio de un video o búsqueda de YouTube y lo convierte al formato deseado (mp3, m4a, opus) con metadatos.
-    'query' puede ser una URL directa o un prefijo como 'ytsearch1:Nombre Cancion'.
+    Emite eventos de progreso desacoplados (ProgressEvent) si se proporciona el callback 'on_progress'.
     """
     logger.info(f"Iniciando descarga individual con query: '{query}' en formato: '{audio_format}'")
+
+    if on_progress:
+        on_progress(
+            ProgressEvent(
+                phase=DownloadPhase.PREPARING,
+                message=f"Consultando información para: {query}"
+            )
+        )
 
     # 1. Validar que FFmpeg exista ANTES de intentar descargar
     ffmpeg_binary = find_ffmpeg()
@@ -49,6 +63,8 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
             "      Es indispensable para convertir los streams de YouTube al formato seleccionado."
         )
         logger.error("FFmpeg no encontrado. Abortando descarga.")
+        if on_progress:
+            on_progress(ProgressEvent(phase=DownloadPhase.ERROR, message=err_msg))
         return {
             "success": False,
             "error": "ffmpeg_missing",
@@ -75,12 +91,45 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
         'no_warnings': True,
     }
 
+    if on_progress:
+        def ydl_hook(d: dict):
+            status = d.get('status')
+            if status == 'downloading':
+                total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate')
+                downloaded_bytes = d.get('downloaded_bytes', 0)
+                percentage = (downloaded_bytes / total_bytes * 100.0) if total_bytes else None
+                speed = d.get('speed')
+                eta = d.get('eta')
+                filename = d.get('filename', '')
+                title = Path(filename).stem if filename else None
+                on_progress(
+                    ProgressEvent(
+                        phase=DownloadPhase.DOWNLOADING,
+                        percentage=percentage,
+                        speed_bytes_sec=speed,
+                        eta_seconds=eta,
+                        item_title=title,
+                        message="Descargando flujo de audio..."
+                    )
+                )
+            elif status == 'finished':
+                on_progress(
+                    ProgressEvent(
+                        phase=DownloadPhase.CONVERTING,
+                        percentage=100.0,
+                        message=f"Convirtiendo audio a {audio_format.upper()} vía FFmpeg..."
+                    )
+                )
+        ydl_opts['progress_hooks'] = [ydl_hook]
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(query, download=True)
 
             if not info_dict:
                 logger.error(f"yt-dlp no devolvió información para query: '{query}'")
+                if on_progress:
+                    on_progress(ProgressEvent(phase=DownloadPhase.ERROR, message="No se pudo obtener información del video."))
                 return {
                     "success": False,
                     "error": "no_info",
@@ -112,6 +161,14 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
 
             metadata_applied = False
             if audio_path.exists():
+                if on_progress:
+                    on_progress(
+                        ProgressEvent(
+                            phase=DownloadPhase.METADATA,
+                            item_title=title,
+                            message="Incrustando etiquetas y carátula..."
+                        )
+                    )
                 meta_payload = {
                     "title": title,
                     "uploader": uploader,
@@ -122,6 +179,16 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
                 logger.warning(f"No se encontró el archivo {audio_format.upper()} resultante en {output_dir}")
 
             logger.info(f"Descarga exitosa: '{title}' por '{uploader}' -> {audio_path.name}")
+            if on_progress:
+                on_progress(
+                    ProgressEvent(
+                        phase=DownloadPhase.COMPLETED,
+                        percentage=100.0,
+                        item_title=title,
+                        message="Descarga completada con éxito."
+                    )
+                )
+
             return {
                 "success": True,
                 "title": title,
@@ -133,6 +200,8 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
             }
     except yt_dlp.utils.DownloadError as e:
         logger.error(f"Error de descarga yt-dlp con query '{query}': {e}")
+        if on_progress:
+            on_progress(ProgressEvent(phase=DownloadPhase.ERROR, message=str(e)))
         return {
             "success": False,
             "error": "download_failed",
@@ -140,6 +209,8 @@ def download_audio_from_youtube(query: str, output_dir: Path, audio_format: str 
         }
     except Exception as e:
         logger.exception(f"Excepción inesperada al procesar '{query}': {e}")
+        if on_progress:
+            on_progress(ProgressEvent(phase=DownloadPhase.ERROR, message=str(e)))
         return {
             "success": False,
             "error": "unknown",
@@ -151,16 +222,39 @@ def download_playlist(
     playlist_url: str,
     output_dir: Path,
     limit: int = 0,
-    on_progress: Optional[Callable[[int, int, str, str], None]] = None,
+    on_progress: Optional[Callable[..., None]] = None,
     audio_format: str = "mp3"
 ) -> dict:
     """
     Descarga todos los videos de una playlist de YouTube como audio con metadatos en el formato especificado.
+    Soporta callbacks con ProgressEvent y callbacks legacy (current, total, title, status).
     """
     logger.info(f"Iniciando descarga de playlist: '{playlist_url}' en formato '{audio_format}' con límite: {limit}")
+
+    def notify(event: ProgressEvent, legacy_status: str = "downloading"):
+        if not on_progress:
+            return
+        try:
+            on_progress(event)
+        except TypeError:
+            # Fallback para callbacks de 4 argumentos: (current, total, title, status)
+            on_progress(
+                event.current_item or 0,
+                event.total_items or 0,
+                event.item_title or "",
+                legacy_status
+            )
+
     ffmpeg_binary = find_ffmpeg()
     if not ffmpeg_binary:
         logger.error("FFmpeg no encontrado para descarga de playlist.")
+        notify(
+            ProgressEvent(
+                phase=DownloadPhase.ERROR,
+                message="FFmpeg no fue detectado en la carpeta 'bin/' ni en el PATH del sistema."
+            ),
+            legacy_status="error"
+        )
         return {
             "success": False,
             "error": "ffmpeg_missing",
@@ -182,6 +276,7 @@ def download_playlist(
             playlist_info = ydl.extract_info(playlist_url, download=False)
     except Exception as e:
         logger.error(f"Fallo al extraer metadatos de la playlist '{playlist_url}': {e}")
+        notify(ProgressEvent(phase=DownloadPhase.ERROR, message=str(e)), legacy_status="error")
         return {
             "success": False,
             "error": "playlist_extract_failed",
@@ -190,6 +285,7 @@ def download_playlist(
 
     if not playlist_info:
         logger.error("No se pudo obtener información de la playlist.")
+        notify(ProgressEvent(phase=DownloadPhase.ERROR, message="No se pudo obtener información de la playlist."), legacy_status="error")
         return {
             "success": False,
             "error": "playlist_extract_failed",
@@ -231,17 +327,53 @@ def download_playlist(
                 "title": video_title,
                 "error": err_text
             })
-            if on_progress:
-                on_progress(i, total_to_download, video_title, "error")
+            notify(
+                ProgressEvent(
+                    phase=DownloadPhase.ERROR,
+                    current_item=i,
+                    total_items=total_to_download,
+                    item_title=video_title,
+                    message=err_text
+                ),
+                legacy_status="error"
+            )
             continue
 
         if not str(video_url).startswith("http"):
             video_url = f"https://www.youtube.com/watch?v={video_url}"
 
-        if on_progress:
-            on_progress(i, total_to_download, video_title, "downloading")
+        notify(
+            ProgressEvent(
+                phase=DownloadPhase.DOWNLOADING,
+                current_item=i,
+                total_items=total_to_download,
+                item_title=video_title,
+                message=f"Descargando pista {i}/{total_to_download}: {video_title}"
+            ),
+            legacy_status="downloading"
+        )
 
-        result = download_audio_from_youtube(video_url, output_dir, audio_format=audio_format)
+        def item_progress_forwarder(evt: ProgressEvent):
+            notify(
+                ProgressEvent(
+                    phase=evt.phase,
+                    percentage=evt.percentage,
+                    speed_bytes_sec=evt.speed_bytes_sec,
+                    eta_seconds=evt.eta_seconds,
+                    current_item=i,
+                    total_items=total_to_download,
+                    item_title=video_title,
+                    message=evt.message
+                ),
+                legacy_status="downloading"
+            )
+
+        result = download_audio_from_youtube(
+            video_url,
+            output_dir,
+            audio_format=audio_format,
+            on_progress=item_progress_forwarder
+        )
 
         if result.get("success"):
             successful.append({
@@ -250,8 +382,16 @@ def download_playlist(
                 "uploader": result.get("uploader"),
                 "mp3_path": result.get("mp3_path")
             })
-            if on_progress:
-                on_progress(i, total_to_download, result.get("title"), "done")
+            notify(
+                ProgressEvent(
+                    phase=DownloadPhase.COMPLETED,
+                    current_item=i,
+                    total_items=total_to_download,
+                    item_title=result.get("title"),
+                    message=f"Pista {i}/{total_to_download} completada."
+                ),
+                legacy_status="done"
+            )
         else:
             err_desc = result.get("message", "Error desconocido")
             logger.warning(f"Fallo al descargar pista #{i} '{video_title}': {err_desc}")
@@ -260,8 +400,16 @@ def download_playlist(
                 "title": video_title,
                 "error": err_desc
             })
-            if on_progress:
-                on_progress(i, total_to_download, video_title, "error")
+            notify(
+                ProgressEvent(
+                    phase=DownloadPhase.ERROR,
+                    current_item=i,
+                    total_items=total_to_download,
+                    item_title=video_title,
+                    message=err_desc
+                ),
+                legacy_status="error"
+            )
 
     logger.info(f"Resumen playlist '{playlist_title}': {len(successful)} exitosas, {len(failed)} fallidas.")
     return {

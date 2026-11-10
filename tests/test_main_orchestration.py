@@ -1,69 +1,69 @@
-import pytest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
-from main import handle_download_prompt, main
+import main
 
 
 class TestMainOrchestration:
-    """Pruebas de orquestación para main.py (Modo Interactivo y CLI)."""
+    """Pruebas de orquestación para el bootstrap en main.py."""
 
-    @patch("main.handle_single_download")
-    @patch("ui.display.console.input", return_value="Coldplay Yellow")
-    @patch("ui.display.prompt_platform", return_value="youtube")
-    def test_handle_download_prompt_interactive_flow_order(self, mock_prompt_platform, mock_input, mock_download):
-        call_order = []
-        mock_prompt_platform.side_effect = lambda: (call_order.append("platform"), "youtube")[1]
-        mock_input.side_effect = lambda *args, **kwargs: (call_order.append("query"), "Coldplay Yellow")[1]
-
-        handle_download_prompt(Path("downloads"))
-
-        assert call_order == ["platform", "query"]
-        mock_download.assert_called_once()
-        # Verificar que el query enviado a resolver/descargar tiene formato de YouTube general
-        resolved_query = mock_download.call_args[0][0]
-        assert resolved_query == "ytsearch1:Coldplay Yellow"
-
-    @patch("main.handle_single_download")
-    @patch("ui.display.show_platform_mismatch_warning")
-    @patch("ui.display.console.input", return_value="https://music.youtube.com/watch?v=123")
-    @patch("ui.display.prompt_platform", return_value="youtube")
-    def test_handle_download_prompt_auto_adaptation(self, mock_prompt_platform, mock_input, mock_warning, mock_download):
-        handle_download_prompt(Path("downloads"))
-
-        mock_warning.assert_called_once_with("youtube", "youtube_music")
-        mock_download.assert_called_once()
-        # Enlace individual limpio
-        assert mock_download.call_args[0][0] == "https://music.youtube.com/watch?v=123"
-
-    @patch("main.handle_single_download")
     @patch("main.parse_arguments")
-    def test_cli_direct_youtube_music_inference(self, mock_args, mock_download):
+    @patch("main.DownloadController")
+    @patch("main.TerminalView")
+    def test_main_runs_cli_direct_when_query_provided(self, mock_view_cls, mock_ctrl_cls, mock_args):
         args = MagicMock()
-        args.query = "https://music.youtube.com/watch?v=ABC123XYZ&list=RDABC123XYZ"
+        args.query = "https://youtube.com/watch?v=123"
         args.output = None
-        args.limit = None
+        args.format = "mp3"
+        args.limit = 5
         mock_args.return_value = args
 
-        main()
+        mock_ctrl = MagicMock()
+        mock_ctrl.run_cli_direct.return_value = 0
+        mock_ctrl_cls.return_value = mock_ctrl
 
-        mock_download.assert_called_once()
-        # Debe haber limpiado la URL del mix
-        cleaned_url = mock_download.call_args[0][0]
-        assert cleaned_url == "https://music.youtube.com/watch?v=ABC123XYZ"
-        assert "&list=" not in cleaned_url
+        with pytest.raises(SystemExit) as exc_info:
+            main.main()
 
-    @patch("main.handle_single_download")
+        assert exc_info.value.code == 0
+        mock_ctrl.run_cli_direct.assert_called_once_with(
+            query="https://youtube.com/watch?v=123",
+            requested_format="mp3",
+            playlist_limit=5
+        )
+
     @patch("main.parse_arguments")
-    def test_cli_direct_search_defaults_to_youtube(self, mock_args, mock_download):
+    @patch("main.DownloadController")
+    @patch("main.TerminalView")
+    def test_main_runs_interactive_loop_when_no_query(self, mock_view_cls, mock_ctrl_cls, mock_args):
         args = MagicMock()
-        args.query = "Queen Bohemian Rhapsody"
+        args.query = None
         args.output = None
-        args.limit = None
         mock_args.return_value = args
 
-        main()
+        mock_ctrl = MagicMock()
+        mock_ctrl_cls.return_value = mock_ctrl
 
-        mock_download.assert_called_once()
-        query = mock_download.call_args[0][0]
-        assert query == "ytsearch1:Queen Bohemian Rhapsody"
+        main.main()
+
+        mock_ctrl.run_interactive_loop.assert_called_once()
+
+    @patch("main.parse_arguments")
+    @patch("main.DownloadController")
+    def test_main_handles_keyboard_interrupt(self, mock_ctrl_cls, mock_args):
+        mock_args.side_effect = KeyboardInterrupt
+
+        with pytest.raises(SystemExit) as exc_info:
+            main.main()
+
+        assert exc_info.value.code == 0
+
+    @patch("main.parse_arguments")
+    def test_main_handles_critical_exception(self, mock_args):
+        mock_args.side_effect = RuntimeError("Error fatal simulado")
+
+        with pytest.raises(SystemExit) as exc_info:
+            main.main()
+
+        assert exc_info.value.code == 1
