@@ -393,3 +393,39 @@ class TerminalView:
                 self._progress.update(self._task_id, description=desc, completed=event.percentage, total=100)
             else:
                 self._progress.update(self._task_id, description=desc)
+
+    # Implementaciones para compatibilidad con métodos ampliados de ViewInterface (Tarea 8)
+    def show_search_results(self, results: List[Dict[str, Any]]) -> None:
+        """Display search results in terminal format."""
+        if not results:
+            self.show_info("No se encontraron resultados de búsqueda.")
+            return
+
+        table = Table(title="Resultados de Búsqueda", header_style="bold cyan", border_style="blue")
+        table.add_column("#", justify="center", width=4)
+        table.add_column("Título", style="white")
+        table.add_column("Duración", justify="center", width=10)
+
+        for idx, item in enumerate(results, start=1):
+            table.add_row(str(idx), item.get("title", "Desconocido"), item.get("duration_str", "N/A"))
+        self.console.print(table)
+
+    def show_queue_state(self, queue: List[Any]) -> None:
+        """Display queue state in terminal format."""
+        if not queue:
+            self.show_info("La cola de descargas está vacía.")
+            return
+        self.show_info(f"Cola de descargas: {len(queue)} elemento(s) pendiente(s).")
+
+    def show_toast(self, message: str) -> None:
+        """Display brief toast message as terminal info."""
+        self.show_info(message)
+
+    def show_modal_error(self, title: str, message: str, buttons: List[str]) -> str:
+        """Display error panel and return the first default action button."""
+        self.show_error(f"{title}: {message}")
+        return buttons[0] if buttons else "Aceptar"
+
+    def navigate_to_section(self, section: str) -> None:
+        """Handle section navigation in terminal (informational)."""
+        logger.debug(f"Terminal navigation to section: {section}")

@@ -6,7 +6,7 @@ import main
 
 
 class TestMainOrchestration:
-    """Pruebas de orquestación para el bootstrap en main.py."""
+    """Pruebas de orquestación para el bootstrap dual en main.py."""
 
     @patch("main.parse_arguments")
     @patch("main.DownloadController")
@@ -17,6 +17,8 @@ class TestMainOrchestration:
         args.output = None
         args.format = "mp3"
         args.limit = 5
+        args.gui = False
+        args.cli = False
         mock_args.return_value = args
 
         mock_ctrl = MagicMock()
@@ -36,10 +38,12 @@ class TestMainOrchestration:
     @patch("main.parse_arguments")
     @patch("main.DownloadController")
     @patch("main.TerminalView")
-    def test_main_runs_interactive_loop_when_no_query(self, mock_view_cls, mock_ctrl_cls, mock_args):
+    def test_main_runs_interactive_loop_when_cli_flag(self, mock_view_cls, mock_ctrl_cls, mock_args):
         args = MagicMock()
         args.query = None
         args.output = None
+        args.gui = False
+        args.cli = True
         mock_args.return_value = args
 
         mock_ctrl = MagicMock()
@@ -48,6 +52,34 @@ class TestMainOrchestration:
         main.main()
 
         mock_ctrl.run_interactive_loop.assert_called_once()
+
+    @patch("main.parse_arguments")
+    @patch("main.launch_gui")
+    def test_main_launches_gui_when_no_args_or_gui_flag(self, mock_launch_gui, mock_args):
+        args = MagicMock()
+        args.query = None
+        args.output = None
+        args.gui = True
+        args.cli = False
+        mock_args.return_value = args
+
+        main.main()
+
+        mock_launch_gui.assert_called_once()
+
+    @patch("main.parse_arguments")
+    @patch("main.launch_gui")
+    def test_main_launches_gui_by_default_when_no_query_and_no_cli(self, mock_launch_gui, mock_args):
+        args = MagicMock()
+        args.query = None
+        args.output = None
+        args.gui = False
+        args.cli = False
+        mock_args.return_value = args
+
+        main.main()
+
+        mock_launch_gui.assert_called_once()
 
     @patch("main.parse_arguments")
     @patch("main.DownloadController")

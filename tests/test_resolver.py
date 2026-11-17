@@ -48,6 +48,39 @@ class TestResolver:
         assert res_empty["mode"] == "search"
         assert res_empty["query"] == "ytsearch1:Audio Oficial"
 
+    def test_buscar_top_coincidencias_empty_input(self):
+        from core.resolver import buscar_top_coincidencias
+        assert buscar_top_coincidencias("") == []
+        assert buscar_top_coincidencias("   ") == []
+
+    def test_buscar_top_coincidencias_mocked(self):
+        from unittest.mock import MagicMock, patch
+        from core.resolver import buscar_top_coincidencias
+
+        mock_entries = [
+            {
+                "id": f"id_{i}",
+                "title": f"Song {i}",
+                "uploader": f"Artist {i}",
+                "duration": 180 + i,
+                "url": f"https://www.youtube.com/watch?v=id_{i}",
+            }
+            for i in range(5)
+        ]
+
+        with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+            mock_ydl_instance = MagicMock()
+            mock_ydl_instance.extract_info.return_value = {"entries": mock_entries}
+            mock_ydl_cls.return_value.__enter__.return_value = mock_ydl_instance
+
+            results = buscar_top_coincidencias("Radiohead Creep", limite=5, platform="youtube")
+            assert len(results) == 5
+            assert results[0]["title"] == "Song 0"
+            assert results[0]["artist"] == "Artist 0"
+            assert results[0]["duration_str"] == "03:00"
+            assert results[0]["url"] == "https://www.youtube.com/watch?v=id_0"
+
+
         res_none = resolve_query(None, platform="youtube")
         assert res_none["mode"] == "search"
         assert res_none["query"] == "ytsearch1:"

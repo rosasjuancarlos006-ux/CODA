@@ -79,3 +79,24 @@ class ViewInterface(Protocol):
     def stop_progress_task(self) -> None:
         """Conclude and dismiss any active progress visualization."""
         ...
+
+    # Métodos ampliados para soporte de la GUI (Tarea 8)
+    def show_search_results(self, results: List[Dict[str, Any]]) -> None:
+        """Display multiple search results for interactive selection."""
+        ...
+
+    def show_queue_state(self, queue: List[Any]) -> None:
+        """Display current items and active progress of the download queue."""
+        ...
+
+    def show_toast(self, message: str) -> None:
+        """Display non-invasive brief notification banner/toast."""
+        ...
+
+    def show_modal_error(self, title: str, message: str, buttons: List[str]) -> str:
+        """Display modal error dialog with action buttons and return chosen action."""
+        ...
+
+    def navigate_to_section(self, section: str) -> None:
+        """Switch active view section ('inicio', 'descargas', 'archivos')."""
+        ...

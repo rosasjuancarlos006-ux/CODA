@@ -1,6 +1,6 @@
 # Constitución de Coda
 
-1. **Stack mínimo.** Solo 4 dependencias de producción (yt-dlp, mutagen, requests, rich) + FFmpeg externo. Toda nueva dependencia requiere justificación escrita en MEMORY.md.
+1. **Stack mínimo.** Solo dependencias esenciales de producción (yt-dlp, mutagen, requests, rich) + FFmpeg externo, y la librería `flet` autorizada exclusivamente para la capa de presentación gráfica. Toda nueva dependencia requiere justificación escrita en MEMORY.md.
 2. **La spec manda.** Si AGENTS.md dice cómo funciona algo, el código debe reflejarlo exactamente. Cambiar el comportamiento implica actualizar AGENTS.md primero.
 3. **Lógica e interfaz separadas.** `core/` y `metadata/` nunca importan de `ui/`. La interfaz puede reemplazarse sin tocar una línea de la lógica de descarga.
 4. **Tests sin instalar nada extra.** Las pruebas en `tests/` cubren módulos puros (`utils/`) y la lógica de coordinación del controlador utilizando vistas simuladas en memoria (*mocks*/*fakes* con la biblioteca estándar), sin dependencias externas de prueba. Se ejecutan con `pytest tests/ -v` y deben pasar al 100% antes de cualquier merge.

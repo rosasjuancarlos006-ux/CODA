@@ -22,38 +22,52 @@ def clean_video_url(url: Optional[str]) -> str:
     dejando únicamente la URL base del video con su identificador 'v'.
     Si no es una URL de video o es inválida, retorna la cadena original o vacía.
     """
-    if not url or not isinstance(url, str):
-        return ""
+    clean_url, _ = clean_mixed_url(url)
+    return clean_url
 
-    url_str = url.strip()
 
-    # Si es URL de playlist pura (/playlist?list=...), no se debe alterar
+def clean_mixed_url(input_url: Optional[str]) -> tuple[str, bool]:
+    """
+    Analiza una dirección web. Si detecta un enlace mixto correspondiente a un video
+    individual perteneciente a una lista (watch?v=ID&list=RD... o similar), extrae
+    el video individual limpio watch?v=ID y reporta True indicando la poda.
+    Si es una lista de reproducción pura (/playlist?list=...), no la poda y reporta False.
+    """
+    if not input_url or not isinstance(input_url, str):
+        return ("", False)
+
+    url_str = input_url.strip()
+
+    # Si es URL de playlist pura (/playlist?list=...), no se debe podar
     if "/playlist" in url_str:
-        return url_str
+        return (url_str, False)
 
     try:
         parsed = urlparse(url_str)
-        # Manejo de URLs con esquema relativo o sin esquema (ej: www.youtube.com/watch?v=...)
+        # Manejo de URLs sin esquema explícito (ej: www.youtube.com/watch?v=...)
         if not parsed.netloc and "/" in url_str:
-            # Reintentar parseando con https:// temporal
             dummy_parsed = urlparse(f"https://{url_str}")
             if "watch" in dummy_parsed.path and "v" in parse_qs(dummy_parsed.query):
                 qs = parse_qs(dummy_parsed.query)
                 video_id = qs.get("v", [""])[0]
                 if video_id:
                     new_query = urlencode({"v": video_id})
-                    return urlunparse(("", "", dummy_parsed.path, "", new_query, "")).lstrip("/")
+                    clean = urlunparse(("", "", dummy_parsed.path, "", new_query, "")).lstrip("/")
+                    was_pruned = ("list=" in url_str or "index=" in url_str)
+                    return (clean, was_pruned)
 
         if "watch" in parsed.path:
             qs = parse_qs(parsed.query)
             video_id = qs.get("v", [""])[0]
             if video_id:
                 new_query = urlencode({"v": video_id})
-                return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", new_query, ""))
+                clean = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", new_query, ""))
+                was_pruned = ("list=" in url_str or "index=" in url_str)
+                return (clean, was_pruned)
     except Exception:
         pass
 
-    return url_str
+    return (url_str, False)
 
 
 def is_valid_youtube_url(text: str) -> bool:

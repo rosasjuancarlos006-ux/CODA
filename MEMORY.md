@@ -2,27 +2,28 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- **Versión**: Fase 8 (Arquitectura Modelo-Vista-Controlador - MVC).
+- **Versión**: QA Testing - Fase 3 / Tarea 3.4 completada (Ciclo de vida, cancelación activa con purga y prevent_close).
 - **Funcionalidades**:
-  - Desacoplamiento total de la vista mediante contrato abstracto `ViewInterface` (`typing.Protocol`).
-  - Implementación concreta en terminal con Rich (`ui/terminal_view.py`) con degradación visual ante streams dinámicos.
-  - Emisión de eventos agnósticos inmutables (`core/events.py`) desde el motor de descarga (`ProgressEvent`, `DownloadPhase`).
-  - Bucle interactivo resiliente en `DownloadController` tolerante a fallos recuperables y entradas vacías.
-  - Cancelación limpia (Ctrl+C) con retorno seguro al menú y supresión de archivos parciales huérfanos.
-  - Consulta y formateo de biblioteca de descargas filtrando formatos soportados (`.mp3`, `.m4a`, `.opus`).
-  - Bootstrap minimalista en `main.py` (< 35 líneas) con inyección de dependencias.
-  - Enmienda a la Regla 4 de `docs/constitution.md` para testing de controladores con *mocks* en memoria.
-  - Suite de 86 pruebas unitarias automatizadas con `pytest` pasando al 100%.
+  - Arquitectura MVC estricta con contrato formal `ViewInterface`.
+  - Capa de presentación gráfica modular con `flet>=0.21.0` en `ui/gui/` y modo terminal preexistente con `rich`.
+  - Cola FIFO desacoplada (`core/queue_manager.py`) gestionada por `controllers/gui_controller.py` en hilo daemon.
+  - Saneamiento y poda automática de mixes (`utils/validator.py` con `clean_mixed_url`).
+  - Búsqueda asíncrona de 5 mejores resultados (`core/resolver.py`).
+  - Resolución incremental de colisiones y escaneo de biblioteca local (`utils/file_manager.py`).
+  - Entrada dual unificada (`main.py`) para ejecución GUI o CLI sin regresiones.
+  - Throttling inteligente de eventos de progreso (100 ms) en FletView protegiendo renderizado de alta frecuencia.
+  - Intercepción segura de cierre de ventana (`prevent_close`) con confirmación pedagógica y purga de temporales.
+  - Suite de pruebas unitarias automatizadas con `pytest` pasando al 100% (238 tests en total).
 
-## Decisiones (y por qué)
-- **Protocol en lugar de ABC para ViewInterface**: Permite duck typing estático y creación instantánea de `FakeView` en tests sin acoplar jerarquías de herencia.
-- **DTOs ProgressEvent inmutables**: El modelo (`core/downloader.py`) emite datos primitivos y nunca importa módulos de UI.
-- **Limpieza contextual de temporales**: Se eliminan archivos huérfanos si la operación es cancelada por el usuario, pero se conserva el audio si solo fallan metadatos.
+## Decisiones clave (y por qué)
+- **Flet 1.1.2 API adjustments**: Usar `ft.FilledButton` (en vez del obsoleto `ElevatedButton`), constructores capitalizados (`ft.Padding.only`, `ft.BorderRadius.all`) y `ft.Window` con `prevent_close=True` para intercepción limpia de cierre.
+- **Protocol ViewInterface desacoplado**: La GUI y la CLI satisfacen el mismo contrato formal de presentación sin dependencias cruzadas.
+- **Gestor de cola FIFO puro**: Operaciones inmutables en memoria con protección de tareas `ACTIVE` y purga de temporales ante cancelaciones.
+- **Protección estricta de biblioteca**: Escaneo de solo lectura en `downloads/` y apertura en explorador nativo sin mutación de archivos.
+- **Concurrencia FIFO blindada**: Pruebas multihilo simultáneas verificaron que `_lock` previene colisiones en encolado y garantiza ejecución estrictamente secuencial de tareas activas.
 
 ## Aprendizajes y errores a evitar
-- **Validación de strings de consola**: Siempre aplicar `.strip()` antes de comprobar si la entrada está vacía (`stripped = raw_input.strip() if raw_input else ""`).
-- **Bootstrap libre de lógica**: `main.py` solo debe orquestar el inicio del controlador y la vista correspondiente.
-
-## Próximos pasos
-- Implementación de interfaz gráfica de escritorio alternativa (Flet GUI) consumiendo `ViewInterface`.
-- Selector interactivo de calidad/bitrate (128, 192, 256, 320 kbps).
+- **Controles no montados en Flet**: Invocar `control.update()` antes de agregar a la página lanza `RuntimeError`; encapsulado en `_safe_update()`.
+- **Intercepción de eventos de ventana**: Manejar `window.on_event` confirmando si existen descargas activas antes de destruir la ventana.
+- **Degradación visual elegante**: Cuando `ProgressEvent` no reporta velocidad o porcentaje, conmutar a `ProgressBar(value=None)` y spinner sin abortar la descarga.
+- **Navegación vs Notificación no invasiva**: Encolar sin tareas activas redirige de inmediato a descargas; encolar con descarga activa emite un toast sin forzar cambio de panel.
