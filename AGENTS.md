@@ -6,7 +6,7 @@ Coda es una herramienta en Python basada en la arquitectura **Modelo-Vista-Contr
 
 - **Tecnologías y versiones clave:**
   - Python 3.10+
-  - `flet>=0.21.0`: Capa de presentación gráfica de escritorio (GUI moderna, reactiva y desacoplada).
+  - `flet>=0.21.0` (incluyendo Flet 1.1.2+): Capa de presentación gráfica moderna y desacoplada (ejecución nativa de escritorio y web vía `flet run --web main.py`).
   - `rich>=13.0.0`: Capa de presentación enriquecida por terminal (paneles, tablas, progress bars, spinners y banners).
   - `yt-dlp>=2024.0.0`: Motor de extracción y descarga de audio de YouTube y YouTube Music.
   - `mutagen>=1.48.0`: Escritura de tags ID3v2 (título, artista, álbum, carátula APIC).
@@ -91,10 +91,11 @@ Coda es una herramienta en Python basada en la arquitectura **Modelo-Vista-Contr
   ```powershell
   pip install -r requirements.txt
   ```
-- **Ejecutar la interfaz gráfica (Modo GUI por defecto):**
+- **Ejecutar la interfaz gráfica (Modo GUI de escritorio o web):**
   ```powershell
   python main.py
   python main.py --gui
+  flet run --web main.py
   ```
 - **Ejecutar la interfaz de terminal interactiva:**
   ```powershell

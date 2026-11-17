@@ -5,15 +5,19 @@
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
   <img src="https://img.shields.io/badge/Platforms-YouTube%20%7C%20YouTube%20Music-red?style=for-the-badge" alt="Platforms" />
   <img src="https://img.shields.io/badge/Formats-MP3%20%7C%20M4A%20%7C%20OPUS-orange?style=for-the-badge" alt="Audio Formats" />
-  <img src="https://img.shields.io/badge/Interface-Rich%20CLI-magenta?style=for-the-badge" alt="Rich CLI" />
+  <img src="https://img.shields.io/badge/Interface-Flet%20GUI%20%7C%20Rich%20CLI-magenta?style=for-the-badge" alt="Flet GUI | Rich CLI" />
 </p>
 
-**Coda** es una herramienta de terminal profesional en Python para buscar y descargar música o playlists completas desde **YouTube** y **YouTube Music** en formato **MP3**, **M4A** u **OPUS**, con selección interactiva por operación, carátulas originales, metadatos ID3 automáticos y una interfaz moderna basada en Rich.
+**Coda** es una aplicación profesional en Python basada en la arquitectura **Modelo-Vista-Controlador (MVC)** para buscar y descargar música o playlists completas desde **YouTube** y **YouTube Music** en formato **MP3**, **M4A** u **OPUS**, con metadatos ID3 automáticos, carátulas en alta resolución y una doble capa de presentación: interfaz gráfica de escritorio/web moderna con **Flet** e interfaz enriquecida de terminal con **Rich**.
 
 ---
 
 ## ✨ Características
 
+- 🖥️ **Doble interfaz desacoplada (GUI moderna & CLI enriquecida)**:
+  - **Interfaz Gráfica de Escritorio & Web (Flet)**: Diseño *Studio Dark* refinado con navegación lateral (Inicio, Descargas en cola, Archivos locales), pegado asistido, búsqueda interactiva de 5 mejores coincidencias, opciones de formato y monitoreo de progreso.
+  - **Ejecución web instantánea**: Soporta `flet run --web main.py` para utilizar Coda directamente desde cualquier navegador.
+  - **Interfaz de Terminal (Rich)**: Paneles dinámicos, banners ASCII, tablas detalladas y barras de progreso fluidas para entornos sin entorno gráfico o puramente por terminal.
 - 🌐 **Soporte Multiplataforma Inteligente**:
   - Descarga desde **YouTube general** (videos, conciertos, directos) o **YouTube Music** (pistas de estudio oficiales, álbumes).
   - Selector interactivo con opciones `[1] YouTube` y `[2] YouTube Music` (Enter = YouTube).
@@ -125,14 +129,26 @@ scoop install ffmpeg
 
 ## 🎵 Uso
 
-### 1. Modo Interactivo (Recomendado)
-Inicia la interfaz completa de Coda:
+### 1. Interfaz Gráfica (Modo por Defecto)
+Inicia la GUI moderna de escritorio:
 ```bash
 python main.py
+# o explícitamente:
+python main.py --gui
 ```
-Te permitirá navegar por el menú, elegir la plataforma (`YouTube` o `YouTube Music`), buscar canciones, ingresar playlists, elegir el formato de salida deseado (`mp3`, `m4a`, `opus`) o explorar tu biblioteca de descargas local.
 
-### 2. Modo Directo por Argumentos (CLI)
+Para ejecutar Coda directamente en el navegador web:
+```bash
+flet run --web main.py
+```
+
+### 2. Modo Interactivo por Terminal (CLI)
+Para ejecutar la interfaz enriquecida en la terminal con Rich:
+```bash
+python main.py --cli
+```
+
+### 3. Modo Directo por Argumentos (CLI)
 Si prefieres pasar la canción o playlist directamente desde la terminal, Coda detectará automáticamente si el enlace proviene de YouTube o YouTube Music:
 
 - **Por nombre de canción**:
