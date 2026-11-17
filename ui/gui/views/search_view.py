@@ -178,12 +178,12 @@ def build_search_view(
         hint_text="Escribe el nombre de la canción o artista (ej: Daft Punk Get Lucky)...",
         hint_style=ft.TextStyle(color=TEXT_MUTED, size=13),
         text_style=ft.TextStyle(color=TEXT_PRIMARY, size=13),
-        bgcolor=SURFACE_COLOR,
-        border_color=BORDER_COLOR,
-        focused_border_color=ACCENT_COLOR,
-        border_radius=ft.BorderRadius.all(RADIUS_BUTTON),
+        bgcolor=ft.Colors.TRANSPARENT,
+        border=ft.NoInputBorder(),
+        focused_border_color=ft.Colors.TRANSPARENT,
         expand=True,
-        content_padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+        content_padding=ft.Padding.symmetric(horizontal=12, vertical=12),
+        on_submit=lambda _: handle_search(None),
     )
 
     def handle_search(_):
@@ -215,14 +215,18 @@ def build_search_view(
 
     input_card = ft.Container(
         content=ft.Row(
-            controls=[search_input, search_button],
-            spacing=8,
+            controls=[
+                ft.Icon(ft.Icons.SEARCH_ROUNDED, size=20, color=TEXT_MUTED),
+                search_input,
+                search_button,
+            ],
+            spacing=10,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
         bgcolor=SURFACE_COLOR,
         border=ft.Border.all(1, BORDER_COLOR),
         border_radius=ft.BorderRadius.all(RADIUS_CONTAINER),
-        padding=16,
+        padding=ft.Padding.symmetric(horizontal=14, vertical=8),
     )
 
     # 4. Sección de resultados o estado de carga

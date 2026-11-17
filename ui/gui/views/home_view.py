@@ -114,12 +114,11 @@ def build_home_view(
         hint_text="https://www.youtube.com/watch?v=... o https://music.youtube.com/...",
         hint_style=ft.TextStyle(color=TEXT_MUTED, size=13),
         text_style=ft.TextStyle(color=TEXT_PRIMARY, size=13),
-        bgcolor=SURFACE_COLOR,
-        border_color=BORDER_COLOR,
-        focused_border_color=ACCENT_COLOR,
-        border_radius=ft.BorderRadius.all(RADIUS_BUTTON),
+        bgcolor=ft.Colors.TRANSPARENT,
+        border=ft.NoInputBorder(),
+        focused_border_color=ft.Colors.TRANSPARENT,
         expand=True,
-        content_padding=ft.Padding.symmetric(horizontal=14, vertical=12),
+        content_padding=ft.Padding.symmetric(horizontal=12, vertical=12),
     )
 
     def handle_paste(_):
@@ -135,16 +134,16 @@ def build_home_view(
         data="paste_btn",
         content=ft.Row(
             controls=[
-                ft.Icon(ft.Icons.CONTENT_PASTE_ROUNDED, size=16, color=TEXT_PRIMARY),
-                ft.Text("Pegar", size=13, weight=ft.FontWeight.W_500, color=TEXT_PRIMARY),
+                ft.Icon(ft.Icons.CONTENT_PASTE_ROUNDED, size=15, color=TEXT_PRIMARY),
+                ft.Text("Pegar", size=12, weight=ft.FontWeight.W_600, color=TEXT_PRIMARY),
             ],
             spacing=6,
             alignment=ft.MainAxisAlignment.CENTER,
         ),
-        bgcolor=SURFACE_COLOR,
+        bgcolor=ft.Colors.with_opacity(0.08, TEXT_PRIMARY),
         border=ft.Border.all(1, BORDER_COLOR),
         border_radius=ft.BorderRadius.all(RADIUS_BUTTON),
-        padding=ft.Padding.symmetric(horizontal=14, vertical=10),
+        padding=ft.Padding.symmetric(horizontal=12, vertical=8),
         ink=True,
         on_click=handle_paste,
     )
@@ -191,19 +190,20 @@ def build_home_view(
     )
 
     input_card = ft.Container(
-        content=ft.Column(
+        content=ft.Row(
             controls=[
-                ft.Row(
-                    controls=[url_input, paste_button, analyze_button],
-                    spacing=8,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
+                ft.Icon(ft.Icons.LINK_ROUNDED, size=20, color=TEXT_MUTED),
+                url_input,
+                paste_button,
+                analyze_button,
             ],
+            spacing=10,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
         ),
         bgcolor=SURFACE_COLOR,
         border=ft.Border.all(1, BORDER_COLOR),
         border_radius=ft.BorderRadius.all(RADIUS_CONTAINER),
-        padding=16,
+        padding=ft.Padding.symmetric(horizontal=14, vertical=8),
     )
 
     # 4. Formatos soportados

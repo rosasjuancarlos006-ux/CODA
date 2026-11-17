@@ -31,7 +31,7 @@ def _build_nav_item(
 
     content_controls = [
         ft.Icon(icon, color=icon_color, size=18),
-        ft.Text(title, color=text_color, size=SUBTITLE_SIZE, weight=ft.FontWeight.W_500),
+        ft.Text(title, color=text_color, size=SUBTITLE_SIZE, weight=ft.FontWeight.W_600 if is_active else ft.FontWeight.W_500),
     ]
 
     if badge_count > 0:
@@ -51,12 +51,12 @@ def _build_nav_item(
             controls=content_controls,
             alignment=ft.MainAxisAlignment.START,
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=10,
+            spacing=12,
         ),
         padding=ft.Padding.symmetric(horizontal=12, vertical=10),
         border_radius=ft.BorderRadius.all(RADIUS_BUTTON),
         bgcolor=bg_color,
-        border=ft.Border.all(1, ACCENT_COLOR if is_active else ft.Colors.TRANSPARENT),
+        border=ft.Border.all(1, ft.Colors.with_opacity(0.25, ACCENT_COLOR) if is_active else ft.Colors.TRANSPARENT),
         ink=True,
         on_click=lambda _: on_click(section_id) if on_click else None,
     )
